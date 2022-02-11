@@ -1,1 +1,2 @@
-./venv_rw
+.gitignore
+venv_rw
