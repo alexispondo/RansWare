@@ -1,3 +1,4 @@
 .gitignore
 venv_rw
 __pycache__
+.idea
