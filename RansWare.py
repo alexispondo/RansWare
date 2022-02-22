@@ -117,25 +117,35 @@ def gen_init_vector():
 def make_mult_iv(iv, data):
     if len(data) < len(iv): # We check if the length of the message is less than the length of the initialization vector
         rest = len(iv) - len(data) # In this case, the number of characters to add to obtain the multiplicity is equal to the subtraction: len(iv) - len(data).
-    else:
-        rest = len(data) % len(iv) # Otherwise, we determine the rest of the division: len(data) % len(iv)
-
-    if rest == 0: # We check if the length of the message is a multiple of the length of the initialization vector
-        return data# In this case we return the message as it is
-    else: # If not
         # We add a number "@" equivalent to the length of iv to know if an addition has been made during decryption
         # (the number "@" is equivalent to the length of "iv" to ensure that the multiplicity is always respected)
         # we use b"" because we expect data in bytes
-        delimiteur = b"" # Initializes the delimiter
+        delimiteur = b""  # Initializes the delimiter
         for k in range(len(iv)):
-            delimiteur = delimiteur + b"@" # we add the characters
+            delimiteur = delimiteur + b"@"  # we add the characters
 
-        # This loop allows to add a number of character "$" equal to the subtraction between the length of iv and the rest of the division of len(data) by len(iv) always in order to ensure the multiplicity
-        nbr_lettre_a_ajouter = len(iv) - rest # Number of letters to add
-        reste_letter = b"" # Initialize the rest of the letter
-        for i in range(nbr_lettre_a_ajouter):
-            reste_letter = reste_letter + b"$" # we add the characters
-        return data + delimiteur + reste_letter # return a message containing the initial message, the delimiter and added characters to ensure multiplicity
+        reste_letter = b""  # Initialize the rest of the letter
+        for i in range(rest):
+            reste_letter = reste_letter + b"$"  # we add the characters
+        return data + delimiteur + reste_letter  # return a message containing the initial message, the delimiter and added characters to ensure multiplicity
+    else:
+        rest = len(data) % len(iv) # Otherwise, we determine the rest of the division: len(data) % len(iv)
+        if rest == 0: # We check if the length of the message is a multiple of the length of the initialization vector
+            return data# In this case we return the message as it is
+        else: # If not
+            # We add a number "@" equivalent to the length of iv to know if an addition has been made during decryption
+            # (the number "@" is equivalent to the length of "iv" to ensure that the multiplicity is always respected)
+            # we use b"" because we expect data in bytes
+            delimiteur = b"" # Initializes the delimiter
+            for k in range(len(iv)):
+                delimiteur = delimiteur + b"@" # we add the characters
+
+            # This loop allows to add a number of character "$" equal to the subtraction between the length of iv and the rest of the division of len(data) by len(iv) always in order to ensure the multiplicity
+            nbr_lettre_a_ajouter = len(iv) - rest # Number of letters to add
+            reste_letter = b"" # Initialize the rest of the letter
+            for i in range(nbr_lettre_a_ajouter):
+                reste_letter = reste_letter + b"$" # we add the characters
+            return data + delimiteur + reste_letter # return a message containing the initial message, the delimiter and added characters to ensure multiplicity
 
 
 # Allows you to retrieve the original message
