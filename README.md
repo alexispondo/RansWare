@@ -40,3 +40,11 @@ python3 RansWare.py enc --dir /path/of/your/dir/that_you/will/crypt --pub_key /p
 ```
 python3 RansWare.py dec --dir /path/of/your/dir/that_you/will/decrypt --priv_key /path/of/your/file/priv_key_generated
 ```
+
+# Additional
+
+All information about this code can be found in the comments of the code.
+Please contact me for any bug or anomaly detected in connection with this tool:
+Linkedin: https://www.linkedin.com/in/alexis-po....
+GitHub: https://github.com/alexispondo/
+RansWare Tool: https://github.com/alexispondo/RansWare
