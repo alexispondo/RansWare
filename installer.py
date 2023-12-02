@@ -1,7 +1,7 @@
 import os
 
 # Assurez vous d'utiliser la bonne version de pip: >> sudo apt-get install python3-pip
-modules = ["cryptography==3.4.8"]
+modules = ["cryptography==3.4.8", "termcolor"]
 
 for mod in modules:
     try:
